@@ -1,0 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@import "tailwindcss";
+
+/* ─── Tailwind v4 Custom Theme ─────────────────────────────── */
+@theme {
+  --color-brand-50:  #f0f4ff;
+  --color-brand-100: #e0e8ff;
+  --color-brand-200: #c7d6fe;
+  --color-brand-300: #a4b8fc;
+  --color-brand-400: #8093f9;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+
+  --color-surface-900: #0a0a0f;
+  --color-surface-800: #111118;
+  --color-surface-700: #1a1a24;
+  --color-surface-600: #22222f;
+  --color-surface-500: #2a2a3a;
+
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+  --font-family-mono: 'JetBrains Mono', monospace;
+
+  --animate-fade-in:  fadeIn 0.3s ease-out;
+  --animate-slide-up: slideUp 0.4s ease-out;
+  --animate-shimmer:  shimmer 2s linear infinite;
+
+  @keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: translateY(0) } }
+  @keyframes shimmer { 0% { background-position: -200% 0 } 100% { background-position: 200% 0 } }
+}
+
+/* ─── Base ─────────────────────────────────────────────────── */
+@layer base {
+  * { box-sizing: border-box; }
+
+  html {
+    background-color: #0a0a0f;
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-surface-900 text-slate-100 font-sans antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #111118; }
+  ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #4338ca; }
+}
+
+/* ─── Components ───────────────────────────────────────────── */
+@layer components {
+
+  .glass {
+    @apply bg-surface-800/80 backdrop-blur-xl border border-white/5 rounded-2xl;
+  }
+
+  .glass-sm {
+    @apply bg-surface-700/60 backdrop-blur-md border border-white/5 rounded-xl;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-brand-400 via-purple-400 to-pink-400 bg-clip-text text-transparent;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm
+           bg-gradient-to-r from-brand-600 to-purple-600
+           hover:from-brand-500 hover:to-purple-500
+           active:scale-95 transition-all duration-150
+           shadow-lg text-white cursor-pointer;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm
+           text-slate-300 hover:text-white hover:bg-white/5
+           active:scale-95 transition-all duration-150
+           border border-white/10 hover:border-white/20 cursor-pointer;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold;
+  }
+
+  /* Input — use placeholder: variant instead of v3's placeholder-* class */
+  .input {
+    @apply w-full px-4 py-2.5 rounded-xl bg-surface-700 border border-white/10
+           text-white text-sm
+           placeholder:text-slate-500
+           focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20
+           transition-all duration-150;
+  }
+
+  .table-row-hover {
+    @apply transition-colors duration-100 cursor-pointer;
+  }
+  .table-row-hover:hover {
+    background-color: rgba(255,255,255,0.02);
+  }
+
+  .skeleton {
+    @apply bg-surface-700 rounded-lg;
+    background: linear-gradient(90deg, #1a1a24 25%, #22222f 50%, #1a1a24 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* stat-card: glass utilities inlined (v4 @apply can't reference custom classes) */
+  .stat-card {
+    @apply bg-surface-800/80 backdrop-blur-xl border border-white/5 rounded-2xl
+           p-5 flex flex-col gap-2 transition-all duration-200;
+  }
+  .stat-card:hover {
+    border-color: rgba(255,255,255,0.1);
+  }
+
+  .channel-whatsapp { @apply bg-emerald-500/15 text-emerald-400 border border-emerald-500/20; }
+  .channel-sms      { @apply bg-blue-500/15 text-blue-400 border border-blue-500/20; }
+  .channel-email    { @apply bg-amber-500/15 text-amber-400 border border-amber-500/20; }
+  .channel-rcs      { @apply bg-purple-500/15 text-purple-400 border border-purple-500/20; }
+
+  .status-draft     { @apply bg-slate-500/20 text-slate-400 border border-slate-500/20; }
+  .status-active    { @apply bg-brand-500/20 text-brand-400 border border-brand-500/20; }
+  .status-completed { @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/20; }
+}
