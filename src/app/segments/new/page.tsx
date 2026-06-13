@@ -13,6 +13,12 @@ const FIELD_LABELS: Record<string, string> = {
   order_count: 'Order Count', avg_order_value: 'Avg Order Value (₹)',
   favourite_category: 'Favourite Category', city: 'City',
 };
+const OP_LABELS: Record<string, string> = {
+  lt: 'Less Than', lte: 'Less Than or Equal',
+  gt: 'Greater Than', gte: 'Greater Than or Equal',
+  eq: 'Equals', neq: 'Not Equals',
+  in: 'In List'
+};
 
 const emptyCondition = () => ({ field: 'total_spend', op: 'gt', value: '' });
 
@@ -137,7 +143,7 @@ export default function NewSegmentPage() {
                 {FIELDS.map((f) => <option key={f} value={f}>{FIELD_LABELS[f]}</option>)}
               </select>
               <select value={cond.op} onChange={(e) => { const nc = [...conditions]; nc[i].op = e.target.value; setConditions(nc); }} className="input py-1.5 text-xs flex-1">
-                {OPS.map((o) => <option key={o} value={o}>{o}</option>)}
+                {OPS.map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}
               </select>
               <input
                 type="text"
