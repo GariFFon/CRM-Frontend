@@ -59,7 +59,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-4 py-4 border-t border-white/5">
+      <div suppressHydrationWarning className="px-4 py-4 border-t border-white/5">
         <div className="glass-sm px-3 py-2.5">
           <p className="text-xs font-semibold text-brand-400">✦ AI Powered</p>
           <p className="text-[11px] text-slate-500 mt-0.5">Gemini 1.5 Flash</p>
