@@ -45,34 +45,34 @@ export default async function CampaignsPage() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {campaigns.map((c) => (
-                  <Link key={c.id} href={`/campaigns/${c.id}`} legacyBehavior>
-                    <tr className="table-row-hover group">
-                      <td className="px-5 py-4">
-                        <p className="font-medium text-white group-hover:text-brand-300 transition-colors">{c.name}</p>
-                      </td>
-                      <td className="px-5 py-4"><ChannelBadge channel={c.channel} /></td>
-                      <td className="px-5 py-4"><StatusBadge status={c.status} /></td>
-                      <td className="px-5 py-4 font-mono text-sm text-slate-300">{c.stats?.total?.toLocaleString() ?? '—'}</td>
-                      <td className="px-5 py-4 font-mono text-sm text-slate-300">{c.stats?.sent?.toLocaleString() ?? '—'}</td>
-                      <td className="px-5 py-4">
-                        {c.stats && c.stats.total > 0 ? (
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-surface-600 rounded-full overflow-hidden w-16">
-                              <div
-                                className="h-full bg-emerald-500 rounded-full"
-                                style={{ width: `${c.stats.rates?.delivery ?? 0}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-slate-400">{c.stats.rates?.delivery ?? 0}%</span>
+                  <tr key={c.id} className="table-row-hover group">
+                    <td className="px-5 py-4">
+                      <Link href={`/campaigns/${c.id}`} className="font-medium text-white group-hover:text-brand-300 hover:underline transition-colors block">
+                        {c.name}
+                      </Link>
+                    </td>
+                    <td className="px-5 py-4"><ChannelBadge channel={c.channel} /></td>
+                    <td className="px-5 py-4"><StatusBadge status={c.status} /></td>
+                    <td className="px-5 py-4 font-mono text-sm text-slate-300">{c.stats?.total?.toLocaleString() ?? '—'}</td>
+                    <td className="px-5 py-4 font-mono text-sm text-slate-300">{c.stats?.sent?.toLocaleString() ?? '—'}</td>
+                    <td className="px-5 py-4">
+                      {c.stats && c.stats.total > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-surface-600 rounded-full overflow-hidden w-16">
+                            <div
+                              className="h-full bg-emerald-500 rounded-full"
+                              style={{ width: `${c.stats.rates?.delivery ?? 0}%` }}
+                            />
                           </div>
-                        ) : '—'}
-                      </td>
-                      <td className="px-5 py-4 text-xs text-slate-400">{c.stats?.opened?.toLocaleString() ?? '—'}</td>
-                      <td className="px-5 py-4 text-xs text-slate-500">
-                        {new Date(c.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                      </td>
-                    </tr>
-                  </Link>
+                          <span className="text-xs text-slate-400">{c.stats.rates?.delivery ?? 0}%</span>
+                        </div>
+                      ) : '—'}
+                    </td>
+                    <td className="px-5 py-4 text-xs text-slate-400">{c.stats?.opened?.toLocaleString() ?? '—'}</td>
+                    <td className="px-5 py-4 text-xs text-slate-500">
+                      {new Date(c.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
