@@ -19,18 +19,36 @@ export default function ProviderInboxPage() {
   const [loading, setLoading] = useState(true);
   const [campaigns, setCampaigns] = useState<Array<{ id: string; name: string; channel: string }>>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  // Track the original insertion order so messages never jump positions
+  const [messageOrder, setMessageOrder] = useState<string[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   
   // Track actions locally for instant UI updates
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
-  const load = async () => {
+  const load = async (isFirstLoad = false) => {
     try {
       const res = await api.inbox.list(selectedCampaignId ?? undefined);
       if (res.success) {
         setCampaigns(res.data.campaigns);
-        setMessages(res.data.messages);
-        
+
+        if (isFirstLoad) {
+          // Lock the order on first load
+          setMessages(res.data.messages);
+          setMessageOrder(res.data.messages.map((m: Message) => m.id));
+        } else {
+          // Subsequent polls: only update statuses in-place, never reorder
+          setMessages(prev => {
+            const incoming = new Map(res.data.messages.map((m: Message) => [m.id, m]));
+            // Update existing messages in-place
+            const updated = prev.map(m => incoming.get(m.id) ?? m);
+            // Append any truly new messages at the end
+            const existingIds = new Set(prev.map(m => m.id));
+            const newMsgs = res.data.messages.filter((m: Message) => !existingIds.has(m.id));
+            return [...updated, ...newMsgs];
+          });
+        }
+
         if (!selectedCampaignId && res.data.campaigns.length > 0) {
           setSelectedCampaignId(res.data.campaigns[0].id);
         }
@@ -43,8 +61,8 @@ export default function ProviderInboxPage() {
   };
 
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 3000);
+    load(true); // first load — lock the order
+    const interval = setInterval(() => load(false), 3000); // polls — status-only updates
     return () => clearInterval(interval);
   }, [selectedCampaignId]);
 
