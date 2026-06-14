@@ -1,6 +1,6 @@
 import { api } from '@/lib/api';
 import Link from 'next/link';
-import { Filter, Plus, Trash2, Eye, Users } from 'lucide-react';
+import { Filter, Plus, Users, Edit3 } from 'lucide-react';
 import DeleteSegmentButton from './DeleteSegmentButton';
 import type { Metadata } from 'next';
 
@@ -24,7 +24,7 @@ export default async function SegmentsPage() {
         </Link>
       </div>
 
-      {segments.length === 0 ? (
+      {(!segments || segments.length === 0) ? (
         <div className="glass p-16 text-center">
           <Filter className="h-12 w-12 text-slate-600 mx-auto mb-4" />
           <p className="text-slate-300 font-medium">No segments yet</p>
@@ -36,7 +36,8 @@ export default async function SegmentsPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {segments.map((seg) => {
-            const rules = seg.rules as { operator: string; conditions: Array<{ field: string; op: string; value: unknown }> };
+            const parsedRules = typeof seg.rules === 'string' ? JSON.parse(seg.rules) : (seg.rules || {});
+            const rules = parsedRules as { operator: string; conditions: Array<{ field: string; op: string; value: unknown }> };
             return (
               <div key={seg.id} className="glass p-5 hover:border-white/10 transition-all duration-200 animate-fade-in">
                 <div className="flex items-start justify-between mb-3">
@@ -50,19 +51,22 @@ export default async function SegmentsPage() {
                     <Link href={`/campaigns/new?segmentId=${seg.id}`} className="btn-ghost px-2.5 py-1.5 text-xs">
                       <Plus className="h-3 w-3" /> Campaign
                     </Link>
+                    <Link href={`/segments/${seg.id}/edit`} className="p-1.5 text-slate-500 hover:text-brand-300 hover:bg-white/5 rounded-lg transition-colors" title="Edit Segment">
+                      <Edit3 className="h-4 w-4" />
+                    </Link>
                     <DeleteSegmentButton id={seg.id} />
                   </div>
                 </div>
 
                 {/* Rule pills */}
                 <div className="flex flex-wrap gap-1.5 mb-3">
-                  {rules.conditions?.slice(0, 3).map((cond, i) => (
+                  {(rules.conditions || []).slice(0, 3).map((cond, i) => (
                     <span key={i} className="glass-sm px-2 py-0.5 text-[10px] font-mono text-slate-300">
                       {cond.field} {cond.op} {String(cond.value)}
                     </span>
                   ))}
-                  {rules.conditions?.length > 3 && (
-                    <span className="glass-sm px-2 py-0.5 text-[10px] text-slate-500">+{rules.conditions.length - 3} more</span>
+                  {(rules.conditions?.length || 0) > 3 && (
+                    <span className="glass-sm px-2 py-0.5 text-[10px] text-slate-500">+{(rules.conditions?.length || 0) - 3} more</span>
                   )}
                 </div>
 

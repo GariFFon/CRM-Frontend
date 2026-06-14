@@ -80,6 +80,7 @@ export type Campaign = {
   channel: 'whatsapp' | 'sms' | 'email' | 'rcs';
   messageTemplate: string;
   status: 'draft' | 'active' | 'completed';
+  deliveryMode: 'simulate' | 'live';
   launchedAt: string | null;
   createdAt: string;
   stats?: CampaignStats;
@@ -153,6 +154,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    update: (id: string, body: { name: string; description?: string; rules: SegmentRules }) =>
+      request<{ success: boolean; data: Segment }>(`/segments/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/segments/${id}`, { method: 'DELETE' }),
     preview: (rules: SegmentRules) =>
@@ -167,11 +173,14 @@ export const api = {
     list: () => request<{ success: boolean; data: Campaign[] }>('/campaigns'),
     get: (id: string) =>
       request<{ success: boolean; data: Campaign }>(`/campaigns/${id}`),
+    delete: (id: string) =>
+      request<{ success: boolean; message: string }>(`/campaigns/${id}`, { method: 'DELETE' }),
     create: (body: {
       name: string;
       segmentId: string;
       channel: string;
       messageTemplate: string;
+      deliveryMode?: 'simulate' | 'live';
     }) =>
       request<{ success: boolean; data: Campaign }>('/campaigns', {
         method: 'POST',
@@ -180,6 +189,11 @@ export const api = {
     launch: (id: string) =>
       request<{ success: boolean; data: { campaignId: string; messagesQueued: number } }>(
         `/campaigns/${id}/launch`,
+        { method: 'POST' }
+      ),
+    retry: (id: string) =>
+      request<{ success: boolean; data: { campaignId: string; retried: number } }>(
+        `/campaigns/${id}/retry`,
         { method: 'POST' }
       ),
     stats: (id: string) =>
@@ -216,5 +230,43 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ campaignId }),
       }),
+  },
+
+  // Provider Inbox — routes live at /channel/* not /api/*
+  inbox: {
+    list: (campaignId?: string) => {
+      const CHANNEL_BASE = process.env.NEXT_PUBLIC_API_URL
+        ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '')
+        : 'http://localhost:3001';
+      const params = campaignId ? `?campaignId=${campaignId}` : '';
+      return fetch(`${CHANNEL_BASE}/channel/inbox${params}`, {
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      }).then((r) => r.json()) as Promise<{
+        success: boolean;
+        data: {
+          campaigns: Array<{ id: string; name: string; channel: string }>;
+          messages: Message[];
+        };
+      }>;
+    },
+    open: (messageId: string) => {
+      const CHANNEL_BASE = process.env.NEXT_PUBLIC_API_URL
+        ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '')
+        : 'http://localhost:3001';
+      return fetch(`${CHANNEL_BASE}/channel/inbox/${messageId}/open`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }).then((r) => r.json());
+    },
+    click: (messageId: string) => {
+      const CHANNEL_BASE = process.env.NEXT_PUBLIC_API_URL
+        ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '')
+        : 'http://localhost:3001';
+      return fetch(`${CHANNEL_BASE}/channel/inbox/${messageId}/click`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }).then((r) => r.json());
+    },
   },
 };

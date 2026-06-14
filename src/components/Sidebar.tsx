@@ -9,6 +9,7 @@ import {
   Megaphone,
   Zap,
   ChevronRight,
+  Inbox,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -17,6 +18,7 @@ const NAV = [
   { href: '/customers',   icon: Users,           label: 'Customers' },
   { href: '/segments',    icon: Filter,          label: 'Segments' },
   { href: '/campaigns',   icon: Megaphone,       label: 'Campaigns' },
+  { href: '/provider',    icon: Inbox,           label: 'Provider Inbox' },
 ];
 
 export default function Sidebar() {

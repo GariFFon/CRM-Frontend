@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+// @ts-ignore - Next.js handles this, but tsc sometimes complains
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 
