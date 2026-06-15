@@ -22,6 +22,7 @@
   "homepage": "https://github.com/GariFFon/CRM-Frontend#readme",
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.1",
+    "@tanstack/react-query": "^5.101.0",
     "@types/node": "^25.9.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

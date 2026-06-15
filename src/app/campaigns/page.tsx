@@ -2,6 +2,7 @@ import { api } from '@/lib/api';
 import Link from 'next/link';
 import { Megaphone, Plus } from 'lucide-react';
 import CampaignTableClient from '@/components/CampaignTableClient';
+import CampaignsCacheSeeder from '@/components/CampaignsCacheSeeder';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = { title: 'Campaigns' };
@@ -12,6 +13,9 @@ export default async function CampaignsPage() {
 
   return (
     <div className="space-y-6 animate-slide-up">
+      {/* Seed the React Query cache with SSR data so mutations are instant */}
+      <CampaignsCacheSeeder campaigns={campaigns} />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">

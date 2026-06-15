@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { api, type SegmentRules } from '@/lib/api';
 import { Sparkles, Plus, Trash2, Users, ChevronRight, Loader2, Filter } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -24,6 +25,7 @@ const emptyCondition = () => ({ field: 'total_spend', op: 'gt', value: '' });
 
 export default function NewSegmentPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [operator, setOperator] = useState<'AND' | 'OR'>('AND');
@@ -70,7 +72,16 @@ export default function NewSegmentPage() {
     if (!name.trim()) return alert('Give the segment a name');
     setSaving(true);
     try {
-      await api.segments.create({ name, description: description || undefined, rules });
+      const res = await api.segments.create({ name, description: description || undefined, rules });
+      // Optimistically prepend the new segment to the list cache so navigating
+      // back to /segments is instant — no loading flash.
+      queryClient.setQueryData<{ success: boolean; data: import('@/lib/api').Segment[] }>(
+        ['segments'],
+        (old) => {
+          if (!old) return old;
+          return { ...old, data: [res.data, ...old.data] };
+        }
+      );
       router.push('/segments');
     } catch (err) {
       alert((err as Error).message);

@@ -2,6 +2,7 @@ import { api } from '@/lib/api';
 import Link from 'next/link';
 import { Filter, Plus, Users, Edit3 } from 'lucide-react';
 import DeleteSegmentButton from './DeleteSegmentButton';
+import SegmentsCacheSeeder from '@/components/SegmentsCacheSeeder';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = { title: 'Segments' };
@@ -12,6 +13,9 @@ export default async function SegmentsPage() {
 
   return (
     <div className="space-y-6 animate-slide-up">
+      {/* Seed the React Query cache with SSR data so mutations are instant */}
+      <SegmentsCacheSeeder segments={segments} />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">

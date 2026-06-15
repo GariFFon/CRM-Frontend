@@ -2,9 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { api, type Segment } from '@/lib/api';
-import { Sparkles, Megaphone, Loader2, Zap, Bot, Inbox, ChevronDown, Plus } from 'lucide-react';
+import {
+  Sparkles, Megaphone, Loader2, Zap, Bot, Inbox, ChevronDown, Plus,
+} from 'lucide-react';
 import { clsx } from 'clsx';
+import { Suspense } from 'react';
 
 const CHANNELS = ['whatsapp', 'sms', 'email', 'rcs'] as const;
 const CHANNEL_INFO = {
@@ -14,9 +18,12 @@ const CHANNEL_INFO = {
   rcs:      { label: '🌐 RCS',      desc: 'Modern messaging with rich media support' },
 };
 
+// ── Main campaign creation form ─────────────────────────────────────────────
+
 function NewCampaignContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [segments, setSegments]     = useState<Segment[]>([]);
   const [name, setName]             = useState('');
@@ -65,11 +72,23 @@ function NewCampaignContent() {
     }
   };
 
+  /** Creates the campaign and navigates to the detail page.
+   *  AI pre-launch insights are shown on the detail page itself. */
   const handleCreate = async () => {
-    if (!name.trim() || !segmentId || !template.trim()) return alert('Fill in all required fields.');
+    if (!name.trim() || !segmentId || !template.trim()) {
+      return alert('Fill in all required fields (name, segment, message).');
+    }
     setSaving(true);
     try {
       const res = await api.campaigns.create({ name, segmentId, channel, messageTemplate: template, deliveryMode });
+      // Optimistically add to cache so the list page feels instant
+      queryClient.setQueryData<{ success: boolean; data: import('@/lib/api').Campaign[] }>(
+        ['campaigns'],
+        (old) => {
+          if (!old) return old;
+          return { ...old, data: [res.data, ...old.data] };
+        }
+      );
       router.push(`/campaigns/${res.data.id}`);
     } catch (err) {
       alert((err as Error).message);
@@ -98,7 +117,7 @@ function NewCampaignContent() {
       <div className={clsx("glass p-5", segmentDropdownOpen && "relative z-50")}>
         <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Target Segment</label>
         <div className="relative">
-          <button 
+          <button
             type="button"
             onClick={() => setSegmentDropdownOpen(!segmentDropdownOpen)}
             className="input w-full text-left flex items-center justify-between"
@@ -108,16 +127,13 @@ function NewCampaignContent() {
             </span>
             <ChevronDown className="h-4 w-4 opacity-50" />
           </button>
-          
+
           {segmentDropdownOpen && (
             <>
-              <div 
-                className="fixed inset-0 z-40" 
-                onClick={() => setSegmentDropdownOpen(false)} 
-              />
+              <div className="fixed inset-0 z-40" onClick={() => setSegmentDropdownOpen(false)} />
               <div className="absolute top-full left-0 right-0 mt-2 bg-surface-800 border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50 flex flex-col animate-fade-in">
                 <div className="max-h-60 overflow-y-auto p-1">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => { setSegmentId(''); setSegmentDropdownOpen(false); }}
                     className={clsx(
@@ -128,7 +144,7 @@ function NewCampaignContent() {
                     — Select a segment —
                   </button>
                   {segments.map((s) => (
-                    <button 
+                    <button
                       key={s.id}
                       type="button"
                       onClick={() => { setSegmentId(s.id); setSegmentDropdownOpen(false); }}
@@ -338,16 +354,23 @@ function NewCampaignContent() {
         )}
       </div>
 
-      {/* Create */}
-      <button onClick={handleCreate} disabled={saving} className="btn-primary w-full justify-center py-3">
-        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-        Create Campaign
+      {/* Create — directly creates the campaign and navigates to the detail page
+           where AI pre-launch insights are shown before you hit Launch */}
+      <button
+        onClick={handleCreate}
+        disabled={saving}
+        className="btn-primary w-full justify-center py-3 text-base"
+      >
+        {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
+        {saving ? 'Creating…' : 'Create Campaign →'}
       </button>
+      <p className="text-center text-xs text-slate-500 -mt-2">
+        AI risk analysis will be shown on the next page before you launch.
+      </p>
     </div>
   );
 }
 
-import { Suspense } from 'react';
 export default function NewCampaignPage() {
   return (
     <Suspense fallback={<div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-brand-400" /></div>}>

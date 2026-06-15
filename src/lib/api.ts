@@ -230,6 +230,19 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ campaignId }),
       }),
+    preLaunchInsights: (segmentId: string, channel: string) =>
+      request<{
+        success: boolean;
+        data: {
+          riskLevel: 'low' | 'medium' | 'high';
+          riskSummary: string;
+          bestTimeToSend: string;
+          tips: string[];
+        };
+      }>('/ai/pre-launch-insights', {
+        method: 'POST',
+        body: JSON.stringify({ segmentId, channel }),
+      }),
   },
 
   // Provider Inbox — routes live at /channel/* not /api/*

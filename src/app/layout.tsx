@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 // @ts-ignore - Next.js handles this, but tsc sometimes complains
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
+import QueryProvider from '@/app/provider/QueryProvider';
 
 export const metadata: Metadata = {
   title: { default: 'Xeno CRM', template: '%s — Xeno CRM' },
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Sidebar />
         <main className="relative z-10 flex-1 overflow-y-auto">
           <div className="min-h-full p-6 lg:p-8">
-            {children}
+            <QueryProvider>{children}</QueryProvider>
           </div>
         </main>
       </body>

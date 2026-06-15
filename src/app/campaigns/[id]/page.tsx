@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { use } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type Campaign, type CampaignStats, type Message } from '@/lib/api';
 import {
   ArrowLeft, Zap, Sparkles, Loader2, RefreshCw,
   CheckCircle, XCircle, Clock, Eye, MousePointer,
   Send, Package, Users, TrendingUp, Activity,
-  ShoppingCart,
+  ShoppingCart, ShieldCheck, ShieldQuestion, ShieldAlert, Lightbulb, RotateCw,
 } from 'lucide-react';
 import Link from 'next/link';
 import ChannelBadge from '@/components/ChannelBadge';
@@ -119,17 +120,34 @@ function colorHex(cls: string) {
   return map[cls] ?? '#94a3b8';
 }
 
+// ─── Pre-launch risk config ──────────────────────────────────────────────────
+type PreLaunchInsights = {
+  riskLevel: 'low' | 'medium' | 'high';
+  riskSummary: string;
+  bestTimeToSend: string;
+  tips: string[];
+};
+
+const RISK_CONFIG = {
+  low:    { icon: ShieldCheck,   label: 'Low Risk',    color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  medium: { icon: ShieldQuestion,label: 'Medium Risk', color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/30',   badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30'     },
+  high:   { icon: ShieldAlert,   label: 'High Risk',   color: 'text-rose-400',    bg: 'bg-rose-500/10',    border: 'border-rose-500/30',    badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30'       },
+};
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const queryClient = useQueryClient();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [stats, setStats]       = useState<CampaignStats | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [insights, setInsights] = useState('');
-  const [launching, setLaunching]             = useState(false);
-  const [retrying, setRetrying]               = useState(false);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [polling, setPolling]                 = useState(false);
+
+  // Pre-launch AI insights (auto-loaded for draft campaigns)
+  const [preLaunch, setPreLaunch]             = useState<PreLaunchInsights | null>(null);
+  const [preLaunchLoading, setPreLaunchLoading] = useState(false);
   const [statusFilter, setStatusFilter]       = useState<string>('all');
   const [lastRefresh, setLastRefresh]         = useState<Date>(new Date());
 
@@ -159,30 +177,91 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     return () => clearInterval(t);
   }, [campaign?.status, load]);
 
-  const handleLaunch = async () => {
-    setLaunching(true);
-    try {
-      await api.campaigns.launch(id);
-      await load();
-    } catch (err) {
-      alert((err as Error).message);
-    } finally {
-      setLaunching(false);
-    }
-  };
+  // Auto-fetch pre-launch insights once campaign loads in draft state
+  const fetchPreLaunch = useCallback(() => {
+    if (!campaign?.segmentId) return;
+    setPreLaunch(null);
+    setPreLaunchLoading(true);
+    api.ai.preLaunchInsights(campaign.segmentId, campaign.channel)
+      .then((r) => setPreLaunch(r.data))
+      .catch(() => setPreLaunch(null))
+      .finally(() => setPreLaunchLoading(false));
+  }, [campaign?.segmentId, campaign?.channel]);
 
-  const handleRetry = async () => {
-    setRetrying(true);
-    try {
-      const res = await api.campaigns.retry(id);
-      await load();
-      alert(`✅ Re-queued ${res.data.retried} stuck messages!`);
-    } catch (err) {
+  useEffect(() => {
+    if (campaign?.status === 'draft') fetchPreLaunch();
+  }, [campaign?.status, fetchPreLaunch]);
+
+  // ── Optimistic Launch ────────────────────────────────────────────────────────
+  const launchMutation = useMutation({
+    mutationFn: () => api.campaigns.launch(id),
+
+    onMutate: async () => {
+      // Immediately show the campaign as active — no waiting spinner
+      setCampaign((prev) =>
+        prev ? { ...prev, status: 'active', launchedAt: new Date().toISOString() } : prev
+      );
+      // Invalidate the campaigns list so navigating back shows updated status
+      await queryClient.cancelQueries({ queryKey: ['campaigns'] });
+      const previousList = queryClient.getQueryData(['campaigns']);
+      queryClient.setQueryData<{ success: boolean; data: Campaign[] }>(['campaigns'], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          data: old.data.map((c) =>
+            c.id === id ? { ...c, status: 'active' as Campaign['status'] } : c
+          ),
+        };
+      });
+      return { previousList };
+    },
+
+    onSuccess: () => {
+      // Reload real data (stats etc.) in the background
+      load(true);
+    },
+
+    onError: (err, _vars, context) => {
+      // Roll back optimistic update
+      setCampaign((prev) =>
+        prev ? { ...prev, status: 'draft', launchedAt: null } : prev
+      );
+      if (context?.previousList) {
+        queryClient.setQueryData(['campaigns'], context.previousList);
+      }
       alert((err as Error).message);
-    } finally {
-      setRetrying(false);
-    }
-  };
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+    },
+  });
+
+  // ── Optimistic Retry ─────────────────────────────────────────────────────────
+  const retryMutation = useMutation({
+    mutationFn: () => api.campaigns.retry(id),
+
+    onMutate: async () => {
+      // Optimistically clear the queued count so the retry button disappears
+      setStats((prev) =>
+        prev ? { ...prev, queued: 0 } : prev
+      );
+    },
+
+    onSuccess: (res) => {
+      load(true);
+      alert(`✅ Re-queued ${res.data.retried} stuck messages!`);
+    },
+
+    onError: (err) => {
+      // Reload to restore actual queued count
+      load(true);
+      alert((err as Error).message);
+    },
+  });
+
+  const handleLaunch = () => launchMutation.mutate();
+  const handleRetry  = () => retryMutation.mutate();
 
   const handleInsights = async () => {
     setInsightsLoading(true);
@@ -266,20 +345,119 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           <button onClick={() => load()} disabled={polling} className="btn-ghost text-xs">
             <RefreshCw className={clsx('h-3.5 w-3.5', polling && 'animate-spin')} /> Refresh
           </button>
-          {campaign.status === 'draft' && (
-            <button onClick={handleLaunch} disabled={launching} className="btn-primary">
-              {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-              Launch Campaign
-            </button>
-          )}
           {campaign.status === 'active' && (stats?.queued ?? 0) > 0 && (
-            <button onClick={handleRetry} disabled={retrying} className="btn-ghost text-xs text-amber-400 border border-amber-400/30 hover:bg-amber-400/10">
-              {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            <button onClick={handleRetry} disabled={retryMutation.isPending} className="btn-ghost text-xs text-amber-400 border border-amber-400/30 hover:bg-amber-400/10">
+              {retryMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
               Retry {stats?.queued} stuck
             </button>
           )}
         </div>
       </div>
+
+      {/* ── Pre-Launch AI Intelligence Panel (Draft only) ── */}
+      {campaign.status === 'draft' && (() => {
+        const risk = preLaunch ? RISK_CONFIG[preLaunch.riskLevel] : null;
+        const RiskIcon = risk?.icon ?? ShieldQuestion;
+        return (
+          <div className={clsx(
+            'rounded-2xl border overflow-hidden shadow-xl transition-all duration-500',
+            risk ? clsx(risk.border, risk.bg) : 'border-brand-500/30 bg-brand-500/5'
+          )}>
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="h-5 w-5 text-brand-400" />
+                <div>
+                  <p className="text-sm font-bold text-white">AI Pre-Launch Intelligence</p>
+                  <p className="text-[10px] text-slate-500">Gemini is analysing your audience &amp; market conditions</p>
+                </div>
+              </div>
+              {!preLaunchLoading && (
+                <button
+                  onClick={fetchPreLaunch}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 transition-colors"
+                  title="Refresh analysis"
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              {preLaunchLoading ? (
+                /* Loading skeleton */
+                <div className="flex items-center gap-3 py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-brand-400 shrink-0" />
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-semibold text-white">Analysing audience risk…</p>
+                    <p className="text-xs text-slate-400">Checking market conditions, send times &amp; segment profile</p>
+                  </div>
+                </div>
+              ) : preLaunch && risk ? (
+                <div className="space-y-4 animate-fade-in">
+                  {/* Risk badge row */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className={clsx('flex items-center gap-2 px-3 py-1.5 rounded-full border', risk.badge)}>
+                      <RiskIcon className="h-4 w-4" />
+                      <span className="text-sm font-bold">{risk.label}</span>
+                    </div>
+                    <span className="text-[10px] bg-white/5 border border-white/10 px-2.5 py-1 rounded-full text-slate-400 font-semibold uppercase tracking-wider">Gemini Assessment</span>
+                  </div>
+
+                  {/* Risk summary */}
+                  <p className="text-sm text-slate-300 leading-relaxed">{preLaunch.riskSummary}</p>
+
+                  {/* Best time to send */}
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10">
+                    <Clock className="h-4 w-4 text-brand-400 shrink-0" />
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Best Time to Send</p>
+                      <p className="text-sm text-white font-semibold mt-0.5">{preLaunch.bestTimeToSend}</p>
+                    </div>
+                  </div>
+
+                  {/* Tips grid */}
+                  {preLaunch.tips.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {preLaunch.tips.map((tip, i) => (
+                        <div key={i} className="flex items-start gap-2 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                          <Lightbulb className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                          <p className="text-xs text-slate-400 leading-relaxed">{tip}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 py-2 text-slate-400">
+                  <Sparkles className="h-4 w-4 text-brand-400 shrink-0" />
+                  <p className="text-sm">Could not load AI insights — you can still launch normally.</p>
+                </div>
+              )}
+
+              {/* Launch button lives inside the panel */}
+              <div className="pt-2 border-t border-white/10">
+                <button
+                  onClick={handleLaunch}
+                  disabled={launchMutation.isPending}
+                  className="btn-primary w-full justify-center py-3 text-base"
+                >
+                  {launchMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
+                  {launchMutation.isPending ? 'Launching Campaign…' : '🚀 Launch Campaign'}
+                </button>
+                {preLaunch && !launchMutation.isPending && (
+                  <p className="text-center text-[11px] text-slate-500 mt-2">
+                    {preLaunch.riskLevel === 'high'
+                      ? '⚠️ High risk detected — review AI tips above before proceeding.'
+                      : 'Looking good! Launch when you\'re ready.'}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
 
       {/* ── Stats ── */}
       {stats && total > 0 ? (
